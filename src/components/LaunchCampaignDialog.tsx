@@ -16,6 +16,15 @@ import React, { useState } from "react";
 import { toast } from "sonner";
 import { launchCampaign } from "@/lib/contract";
 import { Rocket } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format, addDays } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface LaunchCampaignDialogProps {
   onSuccess: () => void;
@@ -25,16 +34,9 @@ const LaunchCampaignDialog = ({ onSuccess }: LaunchCampaignDialogProps) => {
   const { contract, connected } = useWeb3();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    goal: "",
-    startDays: "0",
-    durationDays: "30",
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+  const [goal, setGoal] = useState("");
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(addDays(new Date(), 30));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,30 +46,38 @@ const LaunchCampaignDialog = ({ onSuccess }: LaunchCampaignDialogProps) => {
       return;
     }
     
-    if (!formData.goal || parseFloat(formData.goal) <= 0) {
+    if (!goal || parseFloat(goal) <= 0) {
       toast.error("Please enter a valid goal amount");
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      toast.error("Please select valid dates");
+      return;
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      toast.error("End date must be after start date");
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      const now = Math.floor(Date.now() / 1000);
-      const startAt = now + parseInt(formData.startDays) * 86400;
-      const endAt = startAt + parseInt(formData.durationDays) * 86400;
+      // Convert dates to Unix timestamps (seconds)
+      const startTimestamp = Math.floor(startDate.getTime() / 1000);
+      const endTimestamp = Math.floor(endDate.getTime() / 1000);
       
-      await launchCampaign(contract, formData.goal, startAt, endAt);
+      await launchCampaign(contract, goal, startTimestamp, endTimestamp);
       
       toast.success("Campaign launched successfully!");
       setOpen(false);
       onSuccess();
       
       // Reset form
-      setFormData({
-        goal: "",
-        startDays: "0",
-        durationDays: "30",
-      });
+      setGoal("");
+      setStartDate(new Date());
+      setEndDate(addDays(new Date(), 30));
     } catch (error) {
       console.error("Error launching campaign:", error);
       toast.error("Failed to launch campaign");
@@ -99,46 +109,79 @@ const LaunchCampaignDialog = ({ onSuccess }: LaunchCampaignDialogProps) => {
               </Label>
               <Input
                 id="goal"
-                name="goal"
                 type="number"
                 step="0.01"
-                value={formData.goal}
-                onChange={handleChange}
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
                 className="col-span-3"
                 placeholder="5.00"
                 required
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="startDays" className="text-right">
-                Start in (days)
+              <Label htmlFor="startDate" className="text-right">
+                Start Date
               </Label>
-              <Input
-                id="startDays"
-                name="startDays"
-                type="number"
-                min="0"
-                value={formData.startDays}
-                onChange={handleChange}
-                className="col-span-3"
-                required
-              />
+              <div className="col-span-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => date && setStartDate(date)}
+                      initialFocus
+                      disabled={(date) => date < new Date()}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="durationDays" className="text-right">
-                Duration (days)
+              <Label htmlFor="endDate" className="text-right">
+                End Date
               </Label>
-              <Input
-                id="durationDays"
-                name="durationDays"
-                type="number"
-                min="1"
-                max="90"
-                value={formData.durationDays}
-                onChange={handleChange}
-                className="col-span-3"
-                required
-              />
+              <div className="col-span-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={(date) => date && setEndDate(date)}
+                      initialFocus
+                      disabled={(date) => date <= startDate || date > addDays(startDate, 90)}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Maximum campaign duration is 90 days from start date
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
