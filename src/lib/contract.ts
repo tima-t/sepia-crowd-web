@@ -1,7 +1,7 @@
 
 import { ethers } from "ethers";
 
-export const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Replace with actual deployed contract address on Sepolia
+export const CONTRACT_ADDRESS = "0x0B06fDF056D642d9FF1297102a1227c7B2c7ca57"; // User's deployed contract address on Sepolia
 
 export const TOKEN_ADDRESS = "0x1234567890123456789012345678901234567890"; // Replace with actual token address on Sepolia
 
